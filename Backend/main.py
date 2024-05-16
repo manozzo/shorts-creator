@@ -1,4 +1,17 @@
 import os
+
+# Update PATH for WSL
+os.environ["PATH"] = (
+    "/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games:/snap/bin"  # Add any additional paths if needed
+)
+
+import tempfile
+
+tempfile.tempdir = "/home/manozzo/projects/personal/MoneyPrinter/temp/"
+
+
+# ... rest of your imports and code ...
+
 from utils import *
 from dotenv import load_dotenv
 
@@ -21,11 +34,9 @@ from flask import Flask, request, jsonify
 from moviepy.config import change_settings
 
 
-
 # Set environment variables
 SESSION_ID = os.getenv("TIKTOK_SESSION_ID")
-openai_api_key = os.getenv('OPENAI_API_KEY')
-change_settings({"IMAGEMAGICK_BINARY": os.getenv("IMAGEMAGICK_BINARY")})
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
 # Initialize Flask
 app = Flask(__name__)
@@ -50,23 +61,26 @@ def generate():
         clean_dir("../temp/")
         clean_dir("../subtitles/")
 
-
         # Parse JSON
         data = request.get_json()
-        paragraph_number = int(data.get('paragraphNumber', 1))  # Default to 1 if not provided
-        ai_model = data.get('aiModel')  # Get the AI model selected by the user
-        n_threads = data.get('threads')  # Amount of threads to use for video generation
-        subtitles_position = data.get('subtitlesPosition')  # Position of the subtitles in the video
-        text_color = data.get('color') # Color of subtitle text
+        paragraph_number = int(
+            data.get("paragraphNumber", 1)
+        )  # Default to 1 if not provided
+        ai_model = data.get("aiModel")  # Get the AI model selected by the user
+        n_threads = data.get("threads")  # Amount of threads to use for video generation
+        subtitles_position = data.get(
+            "subtitlesPosition"
+        )  # Position of the subtitles in the video
+        text_color = data.get("color")  # Color of subtitle text
 
         # Get 'useMusic' from the request data and default to False if not provided
-        use_music = data.get('useMusic', False)
+        use_music = data.get("useMusic", False)
 
         # Get 'automateYoutubeUpload' from the request data and default to False if not provided
-        automate_youtube_upload = data.get('automateYoutubeUpload', False)
+        automate_youtube_upload = data.get("automateYoutubeUpload", False)
 
         # Get the ZIP Url of the songs
-        songs_zip_url = data.get('zipUrl')
+        songs_zip_url = data.get("zipUrl")
 
         # Download songs
         if use_music:
@@ -75,15 +89,19 @@ def generate():
                 fetch_songs(songs_zip_url)
             else:
                 # Default to a ZIP file containing popular TikTok Songs
-                fetch_songs("https://filebin.net/2avx134kdibc4c3q/drive-download-20240209T180019Z-001.zip")
+                fetch_songs(
+                    "https://filebin.net/2avx134kdibc4c3q/drive-download-20240209T180019Z-001.zip"
+                )
 
         # Print little information about the video which is to be generated
         print(colored("[Video to be generated]", "blue"))
         print(colored("   Subject: " + data["videoSubject"], "blue"))
-        print(colored("   AI Model: " + ai_model, "blue"))  # Print the AI model being used
-        print(colored("   Custom Prompt: " + data["customPrompt"], "blue"))  # Print the AI model being used
-
-
+        print(
+            colored("   AI Model: " + ai_model, "blue")
+        )  # Print the AI model being used
+        print(
+            colored("   Custom Prompt: " + data["customPrompt"], "blue")
+        )  # Print the AI model being used
 
         if not GENERATING:
             return jsonify(
@@ -93,19 +111,27 @@ def generate():
                     "data": [],
                 }
             )
-        
+
         voice = data["voice"]
         voice_prefix = voice[:2]
 
-
         if not voice:
-            print(colored("[!] No voice was selected. Defaulting to \"en_us_001\"", "yellow"))
+            print(
+                colored(
+                    '[!] No voice was selected. Defaulting to "en_us_001"', "yellow"
+                )
+            )
             voice = "en_us_001"
             voice_prefix = voice[:2]
 
-
         # Generate a script
-        script = generate_script(data["videoSubject"], paragraph_number, ai_model, voice, data["customPrompt"])  # Pass the AI model to the script generation
+        script = generate_script(
+            data["videoSubject"],
+            paragraph_number,
+            ai_model,
+            voice,
+            data["customPrompt"],
+        )  # Pass the AI model to the script generation
 
         # Generate search terms
         search_terms = get_search_terms(
@@ -151,7 +177,7 @@ def generate():
                     "data": [],
                 }
             )
-            
+
         # Define video_paths
         video_paths = []
 
@@ -217,24 +243,40 @@ def generate():
         final_audio.write_audiofile(tts_path)
 
         try:
-            subtitles_path = generate_subtitles(audio_path=tts_path, sentences=sentences, audio_clips=paths, voice=voice_prefix)
+            subtitles_path = generate_subtitles(
+                audio_path=tts_path,
+                sentences=sentences,
+                audio_clips=paths,
+                voice=voice_prefix,
+            )
         except Exception as e:
             print(colored(f"[-] Error generating subtitles: {e}", "red"))
             subtitles_path = None
 
         # Concatenate videos
         temp_audio = AudioFileClip(tts_path)
-        combined_video_path = combine_videos(video_paths, temp_audio.duration, 5, n_threads or 2)
+        combined_video_path = combine_videos(
+            video_paths, temp_audio.duration, 5, n_threads or 2
+        )
 
         # Put everything together
         try:
-            final_video_path = generate_video(combined_video_path, tts_path, subtitles_path, n_threads or 2, subtitles_position, text_color or "#FFFF00")
+            final_video_path = generate_video(
+                combined_video_path,
+                tts_path,
+                subtitles_path,
+                n_threads or 2,
+                subtitles_position,
+                text_color or "#FFFF00",
+            )
         except Exception as e:
             print(colored(f"[-] Error generating final video: {e}", "red"))
             final_video_path = None
 
         # Define metadata for the video, we will display this to the user, and use it for the YouTube upload
-        title, description, keywords = generate_metadata(data["videoSubject"], script, ai_model)
+        title, description, keywords = generate_metadata(
+            data["videoSubject"], script, ai_model
+        )
 
         print(colored("[-] Metadata for YouTube upload:", "blue"))
         print(colored("   Title: ", "blue"))
@@ -251,8 +293,18 @@ def generate():
             SKIP_YT_UPLOAD = False
             if not os.path.exists(client_secrets_file):
                 SKIP_YT_UPLOAD = True
-                print(colored("[-] Client secrets file missing. YouTube upload will be skipped.", "yellow"))
-                print(colored("[-] Please download the client_secret.json from Google Cloud Platform and store this inside the /Backend directory.", "red"))
+                print(
+                    colored(
+                        "[-] Client secrets file missing. YouTube upload will be skipped.",
+                        "yellow",
+                    )
+                )
+                print(
+                    colored(
+                        "[-] Please download the client_secret.json from Google Cloud Platform and store this inside the /Backend directory.",
+                        "red",
+                    )
+                )
 
             # Only proceed with YouTube upload if the toggle is True  and client_secret.json exists.
             if not SKIP_YT_UPLOAD:
@@ -260,24 +312,24 @@ def generate():
                 video_category_id = "28"  # Science & Technology
                 privacyStatus = "private"  # "public", "private", "unlisted"
                 video_metadata = {
-                    'video_path': os.path.abspath(f"../temp/{final_video_path}"),
-                    'title': title,
-                    'description': description,
-                    'category': video_category_id,
-                    'keywords': ",".join(keywords),
-                    'privacyStatus': privacyStatus,
+                    "video_path": os.path.abspath(f"../temp/{final_video_path}"),
+                    "title": title,
+                    "description": description,
+                    "category": video_category_id,
+                    "keywords": ",".join(keywords),
+                    "privacyStatus": privacyStatus,
                 }
 
                 # Upload the video to YouTube
                 try:
                     # Unpack the video_metadata dictionary into individual arguments
                     video_response = upload_video(
-                        video_path=video_metadata['video_path'],
-                        title=video_metadata['title'],
-                        description=video_metadata['description'],
-                        category=video_metadata['category'],
-                        keywords=video_metadata['keywords'],
-                        privacy_status=video_metadata['privacyStatus']
+                        video_path=video_metadata["video_path"],
+                        title=video_metadata["title"],
+                        description=video_metadata["description"],
+                        category=video_metadata["category"],
+                        keywords=video_metadata["keywords"],
+                        privacy_status=video_metadata["privacyStatus"],
                     )
                     print(f"Uploaded video ID: {video_response.get('id')}")
                 except HttpError as e:
@@ -304,7 +356,6 @@ def generate():
             video_clip.write_videofile(f"../{final_video_path}", threads=n_threads or 1)
         else:
             video_clip.write_videofile(f"../{final_video_path}", threads=n_threads or 1)
-
 
         # Let user know
         print(colored(f"[+] Video generated: {final_video_path}!", "green"))
